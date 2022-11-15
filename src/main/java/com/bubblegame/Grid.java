@@ -53,6 +53,12 @@ public class Grid {
   }
 
   public List<Bubble> getBubbleNeighboursHavingSameColor(Bubble bubble) {
+    return getBubbleNeighbours(bubble).stream()
+        .filter(b -> b.getColor() == bubble.getColor() && b != bubble)
+        .toList();
+  }
+
+  public List<Bubble> getBubbleNeighbours(Bubble bubble) {
     Cell bubbleCell = getCellOfBubble(bubble);
     Rectangle2D CellRect =
         new Rectangle2D.Double(
@@ -60,7 +66,6 @@ public class Grid {
     return cells.stream()
         .filter(c -> CellRect.intersects(c.getX(), c.getY(), 2 * R, 2 * R) && c.getBubble() != null)
         .map(Cell::getBubble)
-        .filter(b -> b.getColor() == bubble.getColor() && b != bubble)
         .toList();
   }
 
@@ -69,6 +74,11 @@ public class Grid {
         .filter(cell -> cell.getBubble() == bubble)
         .findAny()
         .orElseThrow(NoSuchElementException::new);
+  }
+
+  public boolean isInFirstRow(Bubble bubble) {
+    Cell cell = getCellOfBubble(bubble);
+    return cells.indexOf(cell) < numberOfColumns;
   }
 
   public void addRow(List<Bubble> bubbles) {

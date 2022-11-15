@@ -43,6 +43,7 @@ public class BubbleGameApp extends JFrame {
   private class GameMouseListener extends MouseAdapter {
     @Override
     public void mousePressed(MouseEvent e) {
+      if (game.isMoving()) return;
       game.shootBubble(angle);
       new Timer()
           .schedule(

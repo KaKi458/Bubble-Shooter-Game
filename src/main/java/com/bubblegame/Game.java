@@ -30,7 +30,9 @@ public class Game {
   }
 
   public synchronized void paintBubbles(Graphics g) {
-    bubbles.forEach(b -> b.paint(g));
+    for (Bubble bubble : bubbles) {
+      bubble.paint(g);
+    }
     if (isMoving) movingBubble.paint(g);
     nextBubble.paint(g);
   }
@@ -48,7 +50,7 @@ public class Game {
     grid.attachBubble(movingBubble);
   }
 
-  private synchronized void removeBubblesFromGrid(List<Bubble> bubblesToRemove) {
+  private void removeBubblesFromGrid(List<Bubble> bubblesToRemove) {
     bubbles.removeAll(bubblesToRemove);
     for (Bubble bubble : bubblesToRemove) {
       try {
@@ -87,11 +89,12 @@ public class Game {
             20);
   }
 
-  private void updateGrid() {
+  private synchronized void updateGrid() {
     attachMovingBubbleToGrid();
     List<Bubble> connectedBubbles = findAllConnectedBubblesHavingSameColor();
     if (connectedBubbles.size() >= 3) {
       removeBubblesFromGrid(connectedBubbles);
+      removeSeparateBubbles(findAllConnectedAreasOfBubbles());
     } else {
       shootingCounter++;
       if (shootingCounter >= 5) {
@@ -115,8 +118,40 @@ public class Game {
         }
       }
     }
-    System.out.println(connectedBubbles.size());
+//    System.out.println(connectedBubbles.size());
     return connectedBubbles;
+  }
+
+  private List<List<Bubble>> findAllConnectedAreasOfBubbles() {
+    List<List<Bubble>> listOfAreas = new ArrayList<>();
+    List<Bubble> bubblesAlreadyConsidered = new ArrayList<>();
+    for (Bubble bubble : bubbles) {
+      if (bubblesAlreadyConsidered.contains(bubble)) continue;
+      List<Bubble> listOfBubblesInOneArea = new ArrayList<>();
+      Stack<Bubble> bubbleStack = new Stack<>();
+      bubbleStack.push(bubble);
+      while (!bubbleStack.empty()) {
+        Bubble tempBubble = bubbleStack.pop();
+        for (Bubble b : grid.getBubbleNeighbours(tempBubble)) {
+          if (!bubblesAlreadyConsidered.contains(b)) {
+            bubblesAlreadyConsidered.add(b);
+            listOfBubblesInOneArea.add(b);
+            bubbleStack.push(b);
+          }
+        }
+      }
+      listOfAreas.add(listOfBubblesInOneArea);
+    }
+    System.out.println(listOfAreas.size());
+    return listOfAreas;
+  }
+
+  private void removeSeparateBubbles(List<List<Bubble>> listOfAreas) {
+    for(List<Bubble> list : listOfAreas) {
+      if(list.stream().noneMatch(grid::isInFirstRow)) {
+        removeBubblesFromGrid(list);
+      }
+    }
   }
 
   private void addRowOfBubbles() {
