@@ -4,10 +4,11 @@ import java.awt.*;
 import java.awt.geom.Point2D;
 import java.util.List;
 import java.util.*;
+import java.util.concurrent.Semaphore;
 
 import static com.bubblegame.Util.distance;
 
-public class Game {
+public class Game extends Thread {
 
     public static final Point2D initialPoint =
             new Point2D.Double(BubbleGameApp.WIDTH / 2.0, BubbleGameApp.HEIGHT - 4 * Bubble.R);
@@ -17,6 +18,7 @@ public class Game {
     private Bubble nextBubble;
     private Bubble movingBubble;
     private boolean isMoving = false;
+    private final Semaphore semaphore;
     private int shootingCounter = 0;
 
     public Game() {
@@ -27,14 +29,17 @@ public class Game {
         }
         nextBubble = new Bubble();
         nextBubble.setInitialPoint();
+        semaphore = new Semaphore(1);
     }
 
-    public synchronized void paintBubbles(Graphics g) {
+    public void paintBubbles(Graphics g) throws InterruptedException {
+        semaphore.acquire();
         for (Bubble bubble : bubbles) {
             bubble.paint(g);
         }
         if (isMoving) movingBubble.paint(g);
         nextBubble.paint(g);
+        semaphore.release();
     }
 
     public void shootBubble(double angle) {
@@ -42,7 +47,7 @@ public class Game {
         nextBubble = new Bubble();
         nextBubble.setInitialPoint();
         setMovingBubbleDirection(angle);
-        movingBubbleAction();
+        new MovingBubbleAction().run();
     }
 
     private void attachMovingBubbleToGrid() {
@@ -51,12 +56,17 @@ public class Game {
     }
 
     private void removeBubblesFromGrid(List<Bubble> bubblesToRemove) {
-        bubbles.removeAll(bubblesToRemove);
-        for (Bubble bubble : bubblesToRemove) {
+        for(Bubble removingBubble : bubblesToRemove) {
             try {
-                grid.removeBubble(bubble);
+                semaphore.acquire();
+                bubbles.remove(removingBubble);
+                grid.removeBubble(removingBubble);
+                semaphore.release();
+                sleep(50);
             } catch (NoSuchElementException e) {
                 System.out.println("Error");
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
             }
         }
     }
@@ -68,30 +78,39 @@ public class Game {
 
     private boolean checkIntersects() {
         return bubbles.stream()
-                .anyMatch(bubble -> distance(bubble.getMiddle(), movingBubble.getMiddle()) <= 2 * Bubble.R);
+                .anyMatch(bubble ->
+                        distance(bubble.getMiddle(), movingBubble.getMiddle()) <= 2 * Bubble.R);
+    }
+
+    private boolean checkTopOfGrid() {
+        return movingBubble.getMiddle().getY() <= 0;
     }
 
     private void setMovingBubbleDirection(double angle) {
         movingBubble.setAngle(angle);
     }
 
-    private void movingBubbleAction() {
-        isMoving = true;
-        new Timer().schedule(
-                new TimerTask() {
-                    @Override
-                    public void run() {
-                        movingBubble.move();
-                        if (checkRebounds()) {
-                            movingBubble.changeXDirection();
+    private class MovingBubbleAction implements Runnable {
+        @Override
+        public void run() {
+            isMoving = true;
+            new Timer().schedule(
+                    new TimerTask() {
+                        @Override
+                        public void run() {
+                            movingBubble.move();
+                            if (checkRebounds()) {
+                                movingBubble.changeXDirection();
+                            }
+                            if (checkIntersects() || checkTopOfGrid()) {
+                                cancel();
+                                updateGrid();
+                                isMoving = false;
+                            }
                         }
-                        if (checkIntersects()) {
-                            cancel();
-                            updateGrid();
-                            isMoving = false;
-                        }
-                    }
-                }, 0, 20);
+                    }, 0, 20);
+
+        }
     }
 
     private synchronized void updateGrid() {

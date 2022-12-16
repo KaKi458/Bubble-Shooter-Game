@@ -14,6 +14,7 @@ public class BubbleGameApp extends JFrame {
     public static int WIDTH = Grid.numberOfColumns * 2 * Bubble.R + 2 * Bubble.R;
     private final Game game;
     private double angle;
+    private Thread gameThread;
 
     public BubbleGameApp() {
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -25,7 +26,11 @@ public class BubbleGameApp extends JFrame {
                 new JPanel() {
                     @Override
                     protected void paintComponent(Graphics g) {
-                        game.paintBubbles(g);
+                        try {
+                            game.paintBubbles(g);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
                     }
                 };
         setBackground(Color.WHITE);
@@ -55,9 +60,7 @@ public class BubbleGameApp extends JFrame {
                                         cancel();
                                     }
                                 }
-                            },
-                            0,
-                            15);
+                            }, 0, 15);
         }
     }
 
